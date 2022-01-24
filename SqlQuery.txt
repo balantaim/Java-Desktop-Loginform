@@ -1,0 +1,9 @@
+Create table Acounts(
+ID INTEGER Primary key AUTOINCREMENT,
+User VARCHAR(20),
+Pass VARCHAR(16),
+Sudo INT(1)
+);
+
+INSERT INTO Acounts (ID,User,Pass,Sudo) VALUES (1, 'admin', 'admin', 1);
+INSERT INTO Acounts (User,Pass,Sudo) VALUES ('user', '123', 0);
