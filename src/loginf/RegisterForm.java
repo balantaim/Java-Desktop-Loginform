@@ -9,6 +9,9 @@ import javax.swing.border.EmptyBorder;
 import java.awt.Color;
 import javax.swing.JLabel;
 import java.awt.Font;
+import java.awt.Image;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.Toolkit;
@@ -19,18 +22,36 @@ import javax.swing.JTextField;
 import javax.swing.JPasswordField;
 import javax.swing.JButton;
 import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.event.MouseMotionAdapter;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import javax.swing.SwingConstants;
+import javax.swing.UIManager;
+
+import java.awt.Component;
 
 public class RegisterForm extends JFrame {
 
 	private JPanel RegisterPane;
-	private JTextField txtEnterYourName;
-	private JPasswordField passwordField;
-	private JPasswordField passwordField2;
-	private JTextField txtEnterYourEmail;
-	static int xy;
-	static int xx;
-
+	public JTextField nameField;
+	private JPasswordField passField, passRepeatField;
+	private int xy, xx;
+	private static int PosX, PosY;
+	private static String uName = "", uPass = "", repPass = "";
+	
+    static Connection con = null;
+    PreparedStatement ps = null;
+    ResultSet rs = null;
+	
+	void updatePosition(int a, int b) {
+		PosX = a;
+		PosY = b;
+		System.out.println(a +" "+b);
+	}
 	/**
 	 * Launch the application.
 	 */
@@ -38,21 +59,33 @@ public class RegisterForm extends JFrame {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
+//					JFrame.setDefaultLookAndFeelDecorated(true);
 					RegisterForm frame = new RegisterForm();
+					frame.setMinimumSize(new Dimension(700, 550));
+					frame.updatePosition(PosX, PosY);
+					if(PosX==0 && PosY==0) {
+						frame.setLocationRelativeTo(null);
+					}else {
+						frame.setLocation(PosX,PosY);
+					}
 					frame.setUndecorated(true);
 					frame.setVisible(true);
+					
+//					Initiate DB connection				
+					con = DbConnection.connect();
+					
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
 		});
 	}
-
 	/**
 	 * Create the frame.
 	 */
 	public RegisterForm() {
-		setTitle("Register Form");
+		setTitle("Register");
+//		Logo on the navigation toolbar
 		setIconImage(Toolkit.getDefaultToolkit().getImage(RegisterForm.class.getResource("/Images/orbz-air-icon.png")));
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setBounds(100, 100, 700, 550);
@@ -60,9 +93,11 @@ public class RegisterForm extends JFrame {
 		RegisterPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(RegisterPane);
 		RegisterPane.setLayout(null);
+		con = DbConnection.connect();
 		
-		JPanel panel = new JPanel();
-		panel.addMouseMotionListener(new MouseMotionAdapter() {
+//		Drag and drop frame
+		JPanel panelHeader = new JPanel();
+		panelHeader.addMouseMotionListener(new MouseMotionAdapter() {
 			@Override
 			public void mouseDragged(MouseEvent e) {
 				int x = e.getXOnScreen();
@@ -70,165 +105,229 @@ public class RegisterForm extends JFrame {
 				setLocation(x-xx, y-xy);
 			}
 		});
-		panel.addMouseListener(new MouseAdapter() {
+		panelHeader.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mousePressed(MouseEvent e) {
 				 xx = e.getX();
 				 xy = e.getY();
 			}
 		});
-		panel.setBounds(0, 0, 1000, 112);
-		panel.setBackground(new Color(255, 153, 0));
-		RegisterPane.add(panel);
-		panel.setLayout(null);
+		panelHeader.setBounds(0, 0, 720, 112);
+		panelHeader.setBackground(new Color(255, 153, 0));
+		RegisterPane.add(panelHeader);
+		panelHeader.setLayout(null);
 		
-		JLabel label = new JLabel("");
-		label.setIcon(new ImageIcon(RegisterForm.class.getResource("/Images/orbz-air-icon.png")));
-		label.setBounds(10, 0, 128, 112);
-		panel.add(label);
+//		Logo picture
+		JLabel logo = new JLabel("");
+		logo.setIcon(new ImageIcon(RegisterForm.class.getResource("/Images/orbz-air-icon.png")));
+		logo.setBounds(35, 0, 128, 112);
+		panelHeader.add(logo);
 		
-		JLabel lblRegisterToEquilibruim = new JLabel("Register to Equilibruim");
-		lblRegisterToEquilibruim.setForeground(Color.BLACK);
-		lblRegisterToEquilibruim.setFont(new Font("Stencil", Font.BOLD, 28));
-		lblRegisterToEquilibruim.setBounds(161, 24, 394, 66);
-		panel.add(lblRegisterToEquilibruim);
+		JLabel header = new JLabel("Register to Equilibruim");
+		header.setForeground(Color.BLACK);
+		header.setFont(new Font("Stencil", Font.BOLD, 28));
+		header.setBounds(173, 23, 394, 66);
+		panelHeader.add(header);
 		
-		JLabel lblNewLabel_1 = new JLabel("  X");
-		lblNewLabel_1.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		lblNewLabel_1.addMouseListener(new MouseAdapter() {
+		JLabel btnClose = new JLabel("");
+		btnClose.setAlignmentY(Component.TOP_ALIGNMENT);
+		btnClose.setAlignmentX(Component.RIGHT_ALIGNMENT);
+//		Create resized Icon
+		ImageIcon closeRedIc = new ImageIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/icons8-cancel-red-50.png")).getImage().getScaledInstance(40, 40, Image.SCALE_SMOOTH));
+		
+		ImageIcon closeIc = new ImageIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/icons8-cancel-50.png")).getImage().getScaledInstance(40, 40, Image.SCALE_SMOOTH));
+		btnClose.setIcon(closeIc);
+		
+		btnClose.setHorizontalAlignment(SwingConstants.RIGHT);
+		btnClose.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		btnClose.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				System.exit(0);
 			}
+			@Override
+			public void mouseEntered(MouseEvent e) {
+				btnClose.setIcon(closeRedIc);
+			}
+			@Override
+			public void mouseExited(MouseEvent e) {
+				btnClose.setIcon(closeIc);
+			}
 		});
-		lblNewLabel_1.setFont(new Font("Tahoma", Font.BOLD, 26));
-		lblNewLabel_1.setForeground(Color.BLACK);
-		lblNewLabel_1.setBounds(625, 11, 53, 45);
-		panel.add(lblNewLabel_1);
+		btnClose.setFont(new Font("Tahoma", Font.BOLD, 26));
+
+		btnClose.setForeground(Color.BLACK);
+		btnClose.setBounds(638, 11, 40, 45);
+		panelHeader.add(btnClose);
 		
-		JPanel panel_1 = new JPanel();
-		panel_1.setToolTipText("Enter your name");
-		panel_1.setBounds(0, 110, 780, 453);
-		panel_1.setBackground(new Color(0, 102, 51));
-		RegisterPane.add(panel_1);
-		panel_1.setLayout(null);
+		JPanel panelBackground = new JPanel();
+		panelBackground.setBounds(0, 110, 720, 450);
+		panelBackground.setBackground(new Color(0, 102, 51));
+		RegisterPane.add(panelBackground);
+		panelBackground.setLayout(null);
 		
-		JLabel lblNewLabel = new JLabel("Go back to login.");
-		lblNewLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		lblNewLabel.setBorder(new MatteBorder(0, 0, 1, 0, (Color) Color.BLACK));
-		lblNewLabel.addMouseListener(new MouseAdapter() {
+		JLabel txtToLogin = new JLabel("Go back to login.");
+		txtToLogin.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		txtToLogin.setBorder(new MatteBorder(0, 0, 1, 0, (Color) Color.BLACK));
+		txtToLogin.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				dispose();
-				
+				try {
+					con.close();
+					con=null;
+				} catch (SQLException e2) {
+					System.out.println(e2);
+				}
 				LoginForm login= new LoginForm();
 				login.setUndecorated(true);
 				login.setVisible(true);
-				//regform.pack();
 				login.setLocationRelativeTo(null);
-				login.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-				
-				
+				login.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);	
+				dispose();
 			}
 		});
-		lblNewLabel.setForeground(Color.BLACK);
-		lblNewLabel.setFont(new Font("Tahoma", Font.PLAIN, 16));
-		lblNewLabel.setBounds(294, 351, 121, 21);
-		panel_1.add(lblNewLabel);
+		txtToLogin.setForeground(Color.BLACK);
+		txtToLogin.setFont(new Font("Tahoma", Font.PLAIN, 16));
+		txtToLogin.setBounds(294, 351, 121, 21);
+		panelBackground.add(txtToLogin);
 		
-		txtEnterYourName = new JTextField();
-		txtEnterYourName.setBackground(new Color(0, 102, 51));
-		txtEnterYourName.setBorder(new MatteBorder(0, 2, 2, 0, (Color) Color.BLACK));
-		txtEnterYourName.addMouseListener(new MouseAdapter() {
+		nameField = new JTextField();
+		nameField.setBackground(new Color(0, 102, 51));
+		nameField.setBorder(new MatteBorder(0, 2, 2, 0, (Color) Color.BLACK));
+
+		nameField.setText("");
+		nameField.setToolTipText("Enter least 8 characters for name. Latin words is mandatory");
+		nameField.setFont(new Font("Tahoma", Font.PLAIN, 16));
+		nameField.setForeground(Color.BLACK);
+		nameField.setBounds(242, 91, 221, 36);
+		panelBackground.add(nameField);
+		nameField.setColumns(10);
+		
+		passField = new JPasswordField();
+		passField.setToolTipText("Choice strong password");
+		passField.setBackground(new Color(0, 102, 51));
+		passField.setBorder(new MatteBorder(0, 2, 2, 0, (Color) Color.BLACK));
+		passField.setText("");
+		passField.setForeground(Color.BLACK);
+		passField.setFont(new Font("Tahoma", Font.PLAIN, 16));
+		passField.setBounds(242, 156, 221, 36);
+		panelBackground.add(passField);
+		
+		passRepeatField = new JPasswordField();
+		passRepeatField.setToolTipText("Repeat password again");
+		passRepeatField.setForeground(Color.BLACK);
+		passRepeatField.setBackground(new Color(0, 102, 51));
+		passRepeatField.setBorder(new MatteBorder(0, 2, 2, 0, (Color) Color.BLACK));
+		passRepeatField.setText("");
+		passRepeatField.setFont(new Font("Tahoma", Font.PLAIN, 16));
+		passRepeatField.setCaretColor(Color.BLACK);
+		passRepeatField.setBounds(242, 217, 221, 36);
+		panelBackground.add(passRepeatField);
+		
+		JButton btnRegister = new JButton("Register");
+		btnRegister.setFocusable(false);
+		UIManager.put("Button.select", new Color(102, 59, 16));
+		btnRegister.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseEntered(MouseEvent e) {
+				btnRegister.setBackground(new Color(176, 93, 11));
+				btnRegister.setForeground(Color.WHITE);
+			}
+			@Override
+			public void mouseExited(MouseEvent e) {
+				btnRegister.setBackground(new Color(255,153,0));
+				btnRegister.setForeground(Color.BLACK);
+			}
+			@Override
+			public void mousePressed(MouseEvent e) {
+//				btnRegister.setContentAreaFilled(false);
+				btnRegister.setForeground(Color.WHITE);
+			}
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				btnRegister.setContentAreaFilled(true);
+				btnRegister.setBackground(new Color(176, 93, 11));
+				btnRegister.setForeground(Color.WHITE);
+			}
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				txtEnterYourName.setText("");
+				RegisterValidation();
 			}
 		});
-		txtEnterYourName.setText("Enter your name");
-		txtEnterYourName.setToolTipText("");
-		txtEnterYourName.setFont(new Font("Tahoma", Font.PLAIN, 16));
-		txtEnterYourName.setForeground(Color.BLACK);
-		txtEnterYourName.setBounds(242, 27, 221, 36);
-		panel_1.add(txtEnterYourName);
-		txtEnterYourName.setColumns(10);
+		btnRegister.setBackground(new Color(255, 153, 0));
+		btnRegister.setFont(new Font("Tahoma", Font.BOLD, 16));
+		btnRegister.setForeground(Color.BLACK);
+		btnRegister.setBounds(242, 290, 221, 45);
+		panelBackground.add(btnRegister);
 		
-		passwordField = new JPasswordField();
-		passwordField.setBackground(new Color(0, 102, 51));
-		passwordField.setBorder(new MatteBorder(0, 2, 2, 0, (Color) Color.BLACK));
-		passwordField.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mouseClicked(MouseEvent e) {
-				passwordField.setText("");
+		JLabel txtUserName = new JLabel("User name:");
+		txtUserName.setForeground(Color.BLACK);
+		txtUserName.setFont(new Font("Tahoma", Font.BOLD, 16));
+		txtUserName.setBounds(47, 103, 121, 24);
+		panelBackground.add(txtUserName);
+		
+		JLabel txtPass = new JLabel("Password:");
+		txtPass.setForeground(Color.BLACK);
+		txtPass.setFont(new Font("Tahoma", Font.BOLD, 16));
+		txtPass.setBounds(47, 161, 121, 24);
+		panelBackground.add(txtPass);
+		
+		JLabel txtRepeatPass = new JLabel("Re-password:");
+		txtRepeatPass.setForeground(Color.BLACK);
+		txtRepeatPass.setFont(new Font("Tahoma", Font.BOLD, 16));
+		txtRepeatPass.setBounds(47, 222, 121, 24);
+		panelBackground.add(txtRepeatPass);
+		
+		passRepeatField.addKeyListener(new KeyAdapter() {
+	        @Override
+	        public void keyPressed(KeyEvent e) {
+	            if(e.getKeyCode() == KeyEvent.VK_ENTER){
+	               btnRegister.doClick();
+	               RegisterValidation();
+	            }
+	        }
+
+	    });
+	}
+	
+	public void RegisterValidation() {
+		boolean nField = false, pField = false, repField = false;		
+		uName = nameField.getText();
+		uPass = String.valueOf(passField.getPassword());
+		repPass = String.valueOf(passRepeatField.getPassword());
+					
+//		Check user name if fill the requirements
+		nField = ValidationRegister.checkName(uName);
+//		Check password if fill the requirements
+		pField = ValidationRegister.checkPass(uPass);
+//		Check password is equal to repeat password
+		repField = ValidationRegister.repPass(uPass, repPass);
+		System.out.println(nField +" "+pField+" "+repField);
+		
+		if (nField && pField && repField) {
+			uPass=SecurePassword.Encoder(uPass);
+			try {
+				ps = con.prepareStatement("INSERT INTO Acounts (User,Pass,Sudo) VALUES (?,?,?);");
+    			ps.setString(1, uName);
+    			ps.setString(2, uPass);
+    			ps.setString(3, "0");
+    			ps.addBatch();
+    			ps.executeBatch();
+    			con.close();
+    			
+    			DashboardUser dashboard= new DashboardUser();
+				dashboard.setUndecorated(false);
+				dashboard.setMinimumSize(new Dimension(700, 550));
+				dashboard.setVisible(true);
+				dashboard.setLocationRelativeTo(null);
+				dashboard.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+				PosX = 100;
+				PosY = 200;
+//				dashboard.updatePosition(PosX, PosY);
+				dispose();
+			} catch (SQLException e2) {
+				System.out.println(e2);
 			}
-		});
-		passwordField.setText("888888");
-		passwordField.setForeground(Color.BLACK);
-		passwordField.setFont(new Font("Tahoma", Font.PLAIN, 16));
-		passwordField.setBounds(242, 156, 221, 36);
-		panel_1.add(passwordField);
-		
-		passwordField2 = new JPasswordField();
-		passwordField2.setForeground(Color.BLACK);
-		passwordField2.setBackground(new Color(0, 102, 51));
-		passwordField2.setBorder(new MatteBorder(0, 2, 2, 0, (Color) Color.BLACK));
-		passwordField2.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mouseClicked(MouseEvent e) {
-				passwordField2.setText("");
-			}
-		});
-		passwordField2.setText("888888");
-		passwordField2.setFont(new Font("Tahoma", Font.PLAIN, 16));
-		passwordField2.setCaretColor(Color.BLACK);
-		passwordField2.setBounds(242, 217, 221, 36);
-		panel_1.add(passwordField2);
-		
-		txtEnterYourEmail = new JTextField();
-		txtEnterYourEmail.setBackground(new Color(0, 102, 51));
-		txtEnterYourEmail.setBorder(new MatteBorder(0, 2, 2, 0, (Color) Color.BLACK));
-		txtEnterYourEmail.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mouseClicked(MouseEvent e) {
-				txtEnterYourEmail.setText("");
-			}
-		});
-		txtEnterYourEmail.setText("Enter your Email");
-		txtEnterYourEmail.setFont(new Font("Tahoma", Font.PLAIN, 16));
-		txtEnterYourEmail.setForeground(Color.BLACK);
-		txtEnterYourEmail.setColumns(10);
-		txtEnterYourEmail.setBounds(242, 92, 221, 36);
-		panel_1.add(txtEnterYourEmail);
-		
-		JButton btnNewButton = new JButton("Register");
-		btnNewButton.setBackground(new Color(255, 153, 0));
-		btnNewButton.setFont(new Font("Tahoma", Font.BOLD, 16));
-		btnNewButton.setForeground(Color.BLACK);
-		btnNewButton.setBounds(242, 290, 221, 36);
-		panel_1.add(btnNewButton);
-		
-		JLabel lblNewLabel_2 = new JLabel("Name:");
-		lblNewLabel_2.setForeground(Color.BLACK);
-		lblNewLabel_2.setFont(new Font("Tahoma", Font.BOLD, 16));
-		lblNewLabel_2.setBounds(47, 32, 121, 24);
-		panel_1.add(lblNewLabel_2);
-		
-		JLabel lblEmail = new JLabel("Email:");
-		lblEmail.setForeground(Color.BLACK);
-		lblEmail.setFont(new Font("Tahoma", Font.BOLD, 16));
-		lblEmail.setBounds(47, 97, 121, 24);
-		panel_1.add(lblEmail);
-		
-		JLabel lblPassword = new JLabel("Password:");
-		lblPassword.setForeground(Color.BLACK);
-		lblPassword.setFont(new Font("Tahoma", Font.BOLD, 16));
-		lblPassword.setBounds(47, 161, 121, 24);
-		panel_1.add(lblPassword);
-		
-		JLabel lblRepassword = new JLabel("Repassword:");
-		lblRepassword.setForeground(Color.BLACK);
-		lblRepassword.setFont(new Font("Tahoma", Font.BOLD, 16));
-		lblRepassword.setBounds(47, 222, 121, 24);
-		panel_1.add(lblRepassword);
+		}
 	}
 }

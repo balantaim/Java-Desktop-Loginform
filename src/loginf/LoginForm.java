@@ -15,31 +15,40 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.ImageIcon;
 import java.awt.event.MouseMotionAdapter;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.awt.event.MouseEvent;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.Toolkit;
 
 import java.awt.Font;
-
+import java.awt.Image;
 import java.awt.Cursor;
 import javax.swing.border.MatteBorder;
+import javax.swing.plaf.metal.MetalButtonUI;
 import javax.swing.JTextField;
 import javax.swing.JPasswordField;
 import javax.swing.SwingConstants;
+import javax.swing.UIManager;
 
-
-
-
+import java.awt.Dimension;
 
 public class LoginForm extends JFrame {
 	
-
-
 	private JPanel LoginForm;
-	private JTextField textField;
-	private JPasswordField passwordField;
-	static int xy;
-	static int xx;
+	private JTextField nameField;
+	private JPasswordField passField;
+	private int xy, xx;
+	private static int PosX, PosY;
+	private static String uName = "", uPass = "";
+	
+    static Connection con = null;
+    PreparedStatement ps = null;
+    ResultSet rs = null;
 
 	/**
 	 * Launch the application.
@@ -47,11 +56,22 @@ public class LoginForm extends JFrame {
 	public static void main(String[] args) {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
-				try {
+				try {		
+//					Initiate DB connection
+					new Thread(() -> DbConnection.CreateDb()).start();
+//					new Thread(() -> con = DbConnection.connect()).start();
+
 					LoginForm frame = new LoginForm();
+					frame.setMinimumSize(new Dimension(700, 550));
 					frame.setUndecorated(true);
 					frame.setVisible(true);
-					frame.setLocationRelativeTo(null);
+					if(PosX==0 && PosY==0) {
+						frame.setLocationRelativeTo(null);
+					}else {
+						frame.setLocation(PosX,PosY);
+					}
+					
+
 					
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -66,7 +86,8 @@ public class LoginForm extends JFrame {
 	public LoginForm() {
 		setResizable(false);
 		
-		setTitle("Login Application");
+		setTitle("Equilibrium Login");
+//		Logo on the navigation toolbar
 		setIconImage(Toolkit.getDefaultToolkit().getImage(LoginForm.class.getResource("/Images/orbz-air-icon.png")));
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setBounds(100, 100, 700, 550);
@@ -74,13 +95,12 @@ public class LoginForm extends JFrame {
 		setContentPane(LoginForm);
 		LoginForm.setLayout(null);
 		
+		con = DbConnection.connect();
 		
-		
-		
-		JPanel panel = new JPanel();
-		panel.addMouseMotionListener(new MouseMotionAdapter() {
-		
-			
+		setResizable(true);
+		JPanel panelHeader = new JPanel();
+//		Drag and Drop frame
+		panelHeader.addMouseMotionListener(new MouseMotionAdapter() {
 			@Override
 			public void mouseDragged(MouseEvent e) {
 				int x = e.getXOnScreen();
@@ -88,134 +108,257 @@ public class LoginForm extends JFrame {
 				setLocation(x-xx, y-xy);
 			}
 		});
-		panel.addMouseListener(new MouseAdapter() {
+		panelHeader.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mousePressed(MouseEvent e) {
-				
 				 xx = e.getX();
 				 xy = e.getY();
 			}
 		});
-
 	
-		panel.setBackground(new Color(255, 153, 0));
-		panel.setBounds(0, 0, 1253, 112);
-		LoginForm.add(panel);
+		panelHeader.setBackground(new Color(255, 153, 0));
+		panelHeader.setBounds(0, 0, 720, 112);
+		LoginForm.add(panelHeader);
 		
-		JLabel lblNewLabel = new JLabel("");
-		lblNewLabel.setIcon(new ImageIcon(LoginForm.class.getResource("/Images/orbz-air-icon.png")));
+//		Logo picture
+		JLabel logo = new JLabel("");
+		logo.setIcon(new ImageIcon(LoginForm.class.getResource("/Images/orbz-air-icon.png")));
 		
-		JLabel lblNewLabel_1 = new JLabel("  X");
-		lblNewLabel_1.setForeground(Color.BLACK);
-		lblNewLabel_1.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		lblNewLabel_1.addMouseListener(new MouseAdapter() {
+		JLabel btnClose = new JLabel("");
+		btnClose.setBackground(Color.WHITE);
+		btnClose.setHorizontalTextPosition(SwingConstants.CENTER);
+		btnClose.setHorizontalAlignment(SwingConstants.RIGHT);
+		
+//		Create resized Icon
+		ImageIcon closeRedIc = new ImageIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/icons8-cancel-red-50.png")).getImage().getScaledInstance(40, 40, Image.SCALE_SMOOTH));
+		ImageIcon closeIc = new ImageIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/icons8-cancel-50.png")).getImage().getScaledInstance(40, 40, Image.SCALE_SMOOTH));
+		btnClose.setIcon(closeIc);
+		
+		btnClose.setAlignmentY(1.0f);
+		btnClose.setAlignmentX(1.0f);
+		btnClose.setForeground(Color.BLACK);
+		btnClose.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		btnClose.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				System.exit(0);
 			}
+			@Override
+			public void mouseEntered(MouseEvent e) {
+				btnClose.setIcon(closeRedIc);
+			}
+			@Override
+			public void mouseExited(MouseEvent e) {
+				btnClose.setIcon(closeIc);
+			}
 		});
-		lblNewLabel_1.setFont(new Font("Tahoma", Font.BOLD, 26));
+		btnClose.setFont(new Font("Tahoma", Font.BOLD, 26));
 		
-		JLabel lblNewLabel_2 = new JLabel("Login to Equilibruim");
-		lblNewLabel_2.setFont(new Font("Stencil", Font.BOLD, 28));
-		lblNewLabel_2.setForeground(Color.BLACK);
-		GroupLayout gl_panel = new GroupLayout(panel);
+		JLabel header = new JLabel("Login to Equilibrium");
+		header.setFont(new Font("Stencil", Font.BOLD, 28));
+		header.setForeground(Color.BLACK);
+		GroupLayout gl_panel = new GroupLayout(panelHeader);
 		gl_panel.setHorizontalGroup(
 			gl_panel.createParallelGroup(Alignment.LEADING)
 				.addGroup(gl_panel.createSequentialGroup()
 					.addGap(42)
-					.addComponent(lblNewLabel)
-					.addGap(30)
-					.addComponent(lblNewLabel_2, GroupLayout.PREFERRED_SIZE, 337, GroupLayout.PREFERRED_SIZE)
-					.addGap(86)
-					.addComponent(lblNewLabel_1, GroupLayout.PREFERRED_SIZE, 55, GroupLayout.PREFERRED_SIZE)
-					.addGap(575))
+					.addComponent(logo)
+					.addGap(28)
+					.addComponent(header, GroupLayout.DEFAULT_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+					.addGap(109)
+					.addComponent(btnClose)
+					.addGap(43))
 		);
 		gl_panel.setVerticalGroup(
 			gl_panel.createParallelGroup(Alignment.LEADING)
 				.addGroup(gl_panel.createSequentialGroup()
 					.addGroup(gl_panel.createParallelGroup(Alignment.LEADING)
+						.addComponent(logo, GroupLayout.PREFERRED_SIZE, 112, GroupLayout.PREFERRED_SIZE)
+						.addGroup(gl_panel.createSequentialGroup()
+							.addGap(32)
+							.addComponent(header, GroupLayout.PREFERRED_SIZE, 48, GroupLayout.PREFERRED_SIZE))
 						.addGroup(gl_panel.createSequentialGroup()
 							.addContainerGap()
-							.addComponent(lblNewLabel_1, GroupLayout.PREFERRED_SIZE, 38, GroupLayout.PREFERRED_SIZE))
-						.addComponent(lblNewLabel, GroupLayout.PREFERRED_SIZE, 112, GroupLayout.PREFERRED_SIZE)
-						.addGroup(gl_panel.createSequentialGroup()
-							.addGap(20)
-							.addComponent(lblNewLabel_2, GroupLayout.PREFERRED_SIZE, 66, GroupLayout.PREFERRED_SIZE)))
+							.addComponent(btnClose)))
 					.addContainerGap(GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
 		);
-		panel.setLayout(gl_panel);
+		panelHeader.setLayout(gl_panel);
 		
-		JPanel panel_1 = new JPanel();
-		panel_1.setForeground(Color.BLACK);
-		panel_1.setBorder(null);
-		panel_1.setBackground(new Color(0, 102, 51));
-		panel_1.setBounds(0, 105, 1206, 578);
-		LoginForm.add(panel_1);
-		panel_1.setLayout(null);
+		JPanel panelBackground = new JPanel();
+		panelBackground.setForeground(Color.BLACK);
+		panelBackground.setBorder(null);
+		panelBackground.setBackground(new Color(0, 102, 51));
+		panelBackground.setBounds(0, 110, 720, 450);
+		LoginForm.add(panelBackground);
+		panelBackground.setLayout(null);
 		
-		JButton btnNewButton = new JButton("Login");
-		btnNewButton.setForeground(Color.BLACK);
-		btnNewButton.setBackground(new Color(255, 153, 0));
-		btnNewButton.setFont(new Font("Tahoma", Font.BOLD, 16));
-		btnNewButton.setBounds(234, 264, 251, 44);
-		panel_1.add(btnNewButton);
-		
-		textField = new JTextField();
-		textField.setHorizontalAlignment(SwingConstants.CENTER);
-		textField.setForeground(Color.BLACK);
-		textField.setFont(new Font("Tahoma", Font.PLAIN, 18));
-		textField.setBorder(new MatteBorder(0, 2, 2, 0, (Color) Color.BLACK));
-		textField.setBackground(new Color(0, 102, 51));
-		textField.setBounds(234, 106, 251, 36);
-		panel_1.add(textField);
-		textField.setColumns(10);
-		
-		passwordField = new JPasswordField();
-		passwordField.setHorizontalAlignment(SwingConstants.CENTER);
-		passwordField.setForeground(Color.BLACK);
-		passwordField.setFont(new Font("Tahoma", Font.PLAIN, 18));
-		passwordField.setBorder(new MatteBorder(0, 2, 2, 0, (Color) Color.BLACK));
-		passwordField.setBackground(new Color(0, 102, 51));
-		passwordField.setBounds(234, 182, 251, 36);
-		panel_1.add(passwordField);
-		
-		JLabel lblNewLabel_3 = new JLabel("Do you hava acount? Go to register.");
-		lblNewLabel_3.addMouseListener(new MouseAdapter() {
+		JButton btnLogin = new JButton("Login");
+		btnLogin.setUI(new MetalButtonUI() {
+		    protected Color getDisabledTextColor() {
+		        return Color.WHITE;
+		    }
+		});
+		btnLogin.setEnabled(true);
+//		btnLogin.setFocusPainted(false);
+		btnLogin.setFocusable(false);
+		UIManager.put("Button.select", new Color(102, 59, 16));
+		btnLogin.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseEntered(MouseEvent e) {
+				btnLogin.setBackground(new Color(176, 93, 11));
+				btnLogin.setForeground(Color.WHITE);
+			}
+			@Override
+			public void mouseExited(MouseEvent e) {
+				btnLogin.setBackground(new Color(255,153,0));
+				btnLogin.setForeground(Color.BLACK);
+			}
+			@Override
+			public void mousePressed(MouseEvent e) {
+//				btnLogin.setContentAreaFilled(false);	
+				btnLogin.setForeground(Color.WHITE);
+			}
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				btnLogin.setContentAreaFilled(true);
+				btnLogin.setBackground(new Color(176, 93, 11));
+				btnLogin.setForeground(Color.WHITE);
+			}
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				dispose();
-				RegisterForm regform= new RegisterForm();
-				
-				regform.setUndecorated(true);
-				regform.setVisible(true);
-				//regform.pack();
-				regform.setLocationRelativeTo(null);
-				regform.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-				
-				
-
-				
-				
+				LoginValidation();
 			}
 		});
-		lblNewLabel_3.setBorder(new MatteBorder(0, 0, 1, 0, (Color) Color.BLACK));
-		lblNewLabel_3.setForeground(Color.BLACK);
-		lblNewLabel_3.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		lblNewLabel_3.setFont(new Font("Tahoma", Font.PLAIN, 16));
-		lblNewLabel_3.setBounds(230, 344, 256, 21);
-		panel_1.add(lblNewLabel_3);
+		btnLogin.setForeground(Color.BLACK);
+		btnLogin.setBackground(new Color(255, 153, 0));
+		btnLogin.setFont(new Font("Tahoma", Font.BOLD, 16));
+		btnLogin.setBounds(234, 264, 251, 45);
+		panelBackground.add(btnLogin);
 		
-		JLabel lblNewLabel_4 = new JLabel("Email:");
-		lblNewLabel_4.setFont(new Font("Tahoma", Font.BOLD, 16));
-		lblNewLabel_4.setForeground(Color.BLACK);
-		lblNewLabel_4.setBounds(104, 111, 70, 25);
-		panel_1.add(lblNewLabel_4);
+		nameField = new JTextField();
+		nameField.setToolTipText("Enter your name");
+		nameField.setHorizontalAlignment(SwingConstants.CENTER);
+		nameField.setForeground(Color.BLACK);
+		nameField.setFont(new Font("Tahoma", Font.PLAIN, 18));
+		nameField.setBorder(new MatteBorder(0, 2, 2, 0, (Color) Color.BLACK));
+		nameField.setBackground(new Color(0, 102, 51));
+		nameField.setBounds(234, 106, 251, 36);
+		panelBackground.add(nameField);
+		nameField.setColumns(10);
 		
-		JLabel lblPassword = new JLabel("Password:");
-		lblPassword.setFont(new Font("Tahoma", Font.BOLD, 16));
-		lblPassword.setForeground(Color.BLACK);
-		lblPassword.setBounds(67, 186, 93, 25);
-		panel_1.add(lblPassword);
+		passField = new JPasswordField();
+		passField.setToolTipText("Enter correct password");
+		passField.setHorizontalAlignment(SwingConstants.CENTER);
+		passField.setForeground(Color.BLACK);
+		passField.setFont(new Font("Tahoma", Font.PLAIN, 18));
+		passField.setBorder(new MatteBorder(0, 2, 2, 0, (Color) Color.BLACK));
+		passField.setBackground(new Color(0, 102, 51));
+		passField.setBounds(234, 182, 251, 36);
+		panelBackground.add(passField);
+		
+		JLabel txtToRegister = new JLabel("Do you hava acount? Go to register.");
+		txtToRegister.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				try {
+					con.close();
+				} catch (SQLException e1) {
+					e1.printStackTrace();
+				}
+				RegisterForm regform= new RegisterForm();
+				regform.setUndecorated(true);
+				regform.setVisible(true);
+				regform.setLocationRelativeTo(null);
+				regform.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+				uName = nameField.getText();
+				regform.nameField.setText(uName);
+				PosX = 100;
+				PosY = 200;
+				regform.updatePosition(PosX, PosY);
+				dispose();
+			}
+		});
+		txtToRegister.setBorder(new MatteBorder(0, 0, 1, 0, (Color) Color.BLACK));
+		txtToRegister.setForeground(Color.BLACK);
+		txtToRegister.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		txtToRegister.setFont(new Font("Tahoma", Font.PLAIN, 16));
+		txtToRegister.setBounds(230, 344, 256, 21);
+		panelBackground.add(txtToRegister);
+		
+		JLabel txtUserName = new JLabel("User name:");
+		txtUserName.setFont(new Font("Tahoma", Font.BOLD, 16));
+		txtUserName.setForeground(Color.BLACK);
+		txtUserName.setBounds(67, 111, 107, 25);
+		panelBackground.add(txtUserName);
+		
+		JLabel txtPass = new JLabel("Password:");
+		txtPass.setFont(new Font("Tahoma", Font.BOLD, 16));
+		txtPass.setForeground(Color.BLACK);
+		txtPass.setBounds(67, 186, 93, 25);
+		panelBackground.add(txtPass);
+		passField.addKeyListener(new KeyAdapter() {
+	        @Override
+	        public void keyPressed(KeyEvent e) {
+	            if(e.getKeyCode() == KeyEvent.VK_ENTER){
+	               btnLogin.doClick();
+	               LoginValidation();
+	            }
+	        }
+
+	    });
+	}
+	public void LoginValidation() {
+		uName = nameField.getText();
+		uPass = String.valueOf(passField.getPassword());
+//		encode password with base64 encryption
+		uPass = SecurePassword.Encoder(uPass);
+		String sql = "SELECT * FROM Acounts Where User LIKE ? AND Pass LIKE?;";
+		String sql2= "SELECT * FROM Acounts Where User LIKE ? AND Sudo LIKE?;";
+		
+//		System.out.println(uName +"\n"+ uPass);
+		if(uName.length() > 3) {
+			try {
+                ps = con.prepareStatement(sql);
+                ps.setString(1, uName);
+                ps.setString(2, uPass);
+                rs = ps.executeQuery();
+
+                if(rs.next()) {
+                	ps = con.prepareStatement(sql2);
+                	ps.setString(1, uName);
+                	ps.setString(2, "0");
+                	rs = ps.executeQuery();
+                	if(rs.next()) {
+                		con.close();
+        				DashboardUser dashboard= new DashboardUser();
+        				dashboard.setUndecorated(false);
+        				dashboard.setMinimumSize(new Dimension(700, 550));
+        				dashboard.setVisible(true);
+        				dashboard.setLocationRelativeTo(null);
+        				dashboard.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        				PosX = 100;
+        				PosY = 200;
+//        				dashboard.updatePosition(PosX, PosY);
+        				dispose();
+                	}else {
+                		con.close();
+        				DashboardAdmin dashboard= new DashboardAdmin();
+        				dashboard.setUndecorated(false);
+        				dashboard.setMinimumSize(new Dimension(700, 550));
+        				dashboard.setVisible(true);
+        				dashboard.setLocationRelativeTo(null);
+        				dashboard.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        				PosX = 100;
+        				PosY = 200;
+//        				dashboard.updatePosition(PosX, PosY);
+        				dispose();
+                	}
+                }else {
+                        System.out.println("sorry, you cant login");
+                }
+			}catch(SQLException Err) {
+				System.out.println("Error " + Err);
+			}
+		}
 	}
 }
