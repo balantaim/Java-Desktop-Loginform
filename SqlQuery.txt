@@ -1,8 +1,0 @@
-CREATE TABLE Acounts(
-User VARCHAR(20) PRIMARY KEY NOT NULL,
-Pass VARCHAR(16),
-Sudo INT
-);
-
-INSERT INTO Acounts (User,Pass,Sudo) VALUES ('admin', 'admin', 1);
-INSERT INTO Acounts (User,Pass,Sudo) VALUES ('user', '123', 0);
