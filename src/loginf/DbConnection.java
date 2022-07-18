@@ -23,7 +23,7 @@ public class DbConnection {
 		}
 	}
 	
-	public static void CreateDb() {
+	public static synchronized void CreateDb() {
 		 File file = new File("LoginDB.db");
          if(!file.exists()) {
         	System.out.println("DB doesn't exist");
